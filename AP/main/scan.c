@@ -32,8 +32,8 @@
 
 
 static const char *TAG = "wifi softAP";
-static uint32_t serial_num = 0; //serial number of csi_recv
-static uint32_t serial_num_pre = 0; //serial number of csi_recv
+static volatile uint8_t serial_num = 0; //serial number of csi_recv
+static volatile uint8_t serial_num_pre = 0; //serial number of csi_recv
 static int rssi_pre = 0;
 static bool can_print = 1;
 
@@ -71,12 +71,12 @@ void print_csi(wifi_csi_info_t received, int diff)
         //printf("serial_num:,%d,0,0,0,0,", serial_num_pre + i);
         for(int i = 0; i < 128; i+=2)
         {
-            	int imag = csi_buf_pre[i];
-            	int real = csi_buf_pre[i+1];
+            int imag = csi_buf_pre[i];
+            int real = csi_buf_pre[i+1];
            	printf("%d,%d,", real, imag);
-            	csi_buf_pre[i] = *(received.buf + i);
-            	csi_buf_pre[i+1] = *(received.buf + i + 1);
-		rssi_pre = received.rx_ctrl.rssi;
+            csi_buf_pre[i] = *(received.buf + i);
+            csi_buf_pre[i+1] = *(received.buf + i + 1);
+		    rssi_pre = received.rx_ctrl.rssi;
 
         }
         printf("\n\n");
@@ -153,7 +153,7 @@ void promi_cb(void *buff, wifi_promiscuous_pkt_type_t type)
  */
 static void udp_server_task(void)
 {
-    uint32_t rx_num;
+    uint8_t rx_num;
     char addr_str[128];
     int addr_family;
     int ip_protocol;
@@ -193,13 +193,13 @@ static void udp_server_task(void)
         }
         ESP_LOGI(TAG, "Socket bound, port %d", PORT);
 
-	    ESP_ERROR_CHECK(esp_wifi_set_csi_rx_cb(&receive_csi_cb, NULL));    
+	    ESP_ERROR_CHECK(esp_wifi_set_csi_rx_cb(&receive_csi_cb, NULL));    // 注册接收机的CSI处理回调函数，每收到一个CSI包调用一次
         while (1)
 		{
             ESP_LOGI(TAG, "Waiting for data");
             struct sockaddr_in6 source_addr;
             socklen_t socklen = sizeof(source_addr);
-            int len = recvfrom(sock, &rx_num, sizeof(uint32_t), 0, (struct sockaddr *)&source_addr, &socklen);
+            int len = recvfrom(sock, &rx_num, sizeof(uint8_t), 0, (struct sockaddr *)&source_addr, &socklen);
 
             if (len < 0)
 			{
@@ -227,11 +227,13 @@ void wifi_init_softap(void)
     tcpip_adapter_init();
     ESP_ERROR_CHECK(esp_event_loop_create_default());
 
+    // wifi参数
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
 	cfg.csi_enable = 1;
 	ESP_LOGI(TAG, "Starting esp_wifi_init");
+    // wifi初始化
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
-
+    // 注册事件
     ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &wifi_event_handler, NULL));
 
     wifi_config_t wifi_config =
@@ -284,11 +286,11 @@ void wifi_init_softap(void)
     
     //////////////////////////////
     
-    wifi_promiscuous_filter_t filer_promi;
+    wifi_promiscuous_filter_t filer_promi;           // 过滤数据包
 	wifi_promiscuous_filter_t filer_promi_ctrl;
 
 	uint32_t filter_promi_field = (0xFFFFFFF6);
-	uint32_t filter_promi_ctrl_field = (0x20000000);
+	uint32_t filter_promi_ctrl_field = (0x20000000);            // 控制帧
 	uint32_t filter_event=WIFI_EVENT_MASK_ALL;
 
 	filer_promi.filter_mask = filter_promi_field;
@@ -299,10 +301,10 @@ void wifi_init_softap(void)
 	esp_wifi_set_promiscuous_ctrl_filter(&filer_promi_ctrl);
 
 	ESP_ERROR_CHECK(esp_wifi_set_promiscuous(true));
-	esp_wifi_set_promiscuous_rx_cb(promi_cb);
+	esp_wifi_set_promiscuous_rx_cb(promi_cb);                  // 注册接收机混杂模式下的回调函数，每收到一个数据包，回调函数调用一次
 //csi_cb
 
-	ESP_ERROR_CHECK(esp_wifi_set_csi(1));
+	ESP_ERROR_CHECK(esp_wifi_set_csi(1));                // 启用CSI
 
 	// Set CSI configuration to whatever suits you best
 	wifi_csi_config_t configuration_csi;
@@ -310,11 +312,11 @@ void wifi_init_softap(void)
 	configuration_csi.htltf_en = 1;
 	configuration_csi.stbc_htltf2_en = 1;
 	configuration_csi.ltf_merge_en = 1;
-	configuration_csi.channel_filter_en = 0;
+	configuration_csi.channel_filter_en = 0;    // 禁止子载波平滑
 	configuration_csi.manu_scale = 0;
 	//configuration_csi.shift = 0;
 
-	ESP_ERROR_CHECK(esp_wifi_set_csi_config(&configuration_csi));
+	ESP_ERROR_CHECK(esp_wifi_set_csi_config(&configuration_csi));     // 设置参数
 	
 	//ESP_ERROR_CHECK(esp_wifi_set_csi_rx_cb(&receive_csi_cb, NULL));
 
@@ -323,13 +325,13 @@ void wifi_init_softap(void)
     ESP_LOGI(TAG, "wifi_init_softap finished. SSID:%s password:%s", EXAMPLE_ESP_WIFI_SSID, EXAMPLE_ESP_WIFI_PASS);
 
 	uint8_t mac_STA[6];
-	esp_wifi_get_mac(ESP_IF_WIFI_STA, mac_STA);
+	esp_wifi_get_mac(ESP_IF_WIFI_STA, mac_STA);       // 获取STA的mac
 	char mac_STA_str[LEN_MAC_ADDR] = {0};
 	sprintf(mac_STA_str, "%02X:%02X:%02X:%02X:%02X:%02X", mac_STA[0], mac_STA[1], mac_STA[2], mac_STA[3], mac_STA[4], mac_STA[5]);
 	ESP_LOGI(TAG, "MAC STA:%s", mac_STA_str);
 
 	uint8_t mac_AP[6];
-	ESP_ERROR_CHECK(esp_wifi_get_mac(ESP_IF_WIFI_AP, mac_AP));
+	ESP_ERROR_CHECK(esp_wifi_get_mac(ESP_IF_WIFI_AP, mac_AP));   // 获取AP的mac
 	char mac_AP_str[LEN_MAC_ADDR] = {0};
 	sprintf(mac_AP_str, "%02X:%02X:%02X:%02X:%02X:%02X", mac_AP[0], mac_AP[1], mac_AP[2], mac_AP[3], mac_AP[4], mac_AP[5]);
 	ESP_LOGI(TAG, "MAC AP:%s", mac_AP_str);
