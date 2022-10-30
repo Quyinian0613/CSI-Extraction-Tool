@@ -43,7 +43,7 @@ static EventGroupHandle_t s_wifi_event_group;
 const int WIFI_CONNECTED_BIT = BIT0;
 
 static const char *TAG = "wifi station";
-static uint32_t serial_num = 0; //serial number of csi
+static uint8_t serial_num = 0; //serial number of csi
 
 static bool can_print = 1;
 static int s_retry_num = 0;
@@ -89,15 +89,15 @@ void receive_csi_cb(void *ctx, wifi_csi_info_t *data)
 
         while(can_print == 0){}
         can_print = 0;
-            int8_t* my_ptr = received.buf;
-            printf("serial_num:,%d,%d,%d,%d,%d,", serial_num, received.len, received.rx_ctrl.rssi, received.rx_ctrl.noise_floor, received.rx_ctrl.rx_state);
-            for(int i = 0; i < received.len; i+=2)
-            {
-                int imag = my_ptr[i];
-                int real = my_ptr[i+1];
-                printf("%d,%d,", real, imag);
-            }
-            printf("\n\n");
+        int8_t* my_ptr = received.buf;
+        printf("serial_num:,%d,%d,%d,%d,%d,", serial_num, received.len, received.rx_ctrl.rssi, received.rx_ctrl.noise_floor, received.rx_ctrl.rx_state);
+        for(int i = 0; i < received.len; i+=2)
+        {
+            int imag = my_ptr[i];
+            int real = my_ptr[i+1];
+            printf("%d,%d,", real, imag);
+        }
+        printf("\n\n");
         can_print = 1;
         serial_num++;
 	} else {
@@ -143,7 +143,7 @@ void promi_cb(void *buff, wifi_promiscuous_pkt_type_t type)
 static void udp_client_task(void)
 {
     //char rx_buffer[128];
-    //uint8_t rx_num;
+    uint8_t rx_num;
     char addr_str[128];
     int addr_family;
     int ip_protocol;
@@ -169,7 +169,7 @@ static void udp_client_task(void)
 	    ESP_ERROR_CHECK(esp_wifi_set_csi_rx_cb(&receive_csi_cb, NULL));
         while (1)
 		{
-            int err = sendto(sock, &serial_num, sizeof(uint32_t), 0, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
+            int err = sendto(sock, &serial_num, sizeof(uint8_t), 0, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
             if (err < 0)
 			{
                 ESP_LOGE(TAG, "Error occurred during sending: errno %d", errno);
@@ -231,7 +231,7 @@ void wifi_init_sta(void)
     //esp_wifi_config_espnow_rate(WIFI_IF_STA, WIFI_PHY_RATE_MCS0_LGI);    
     
 	ESP_LOGI(TAG, "Starting esp_wifi_start");
-    ESP_ERROR_CHECK(esp_wifi_start() );
+    ESP_ERROR_CHECK(esp_wifi_start() );                   // 发布事件：WIFI_EVENT_STA_START
       
     //set wifi chanel
     uint8_t primary = 13;
