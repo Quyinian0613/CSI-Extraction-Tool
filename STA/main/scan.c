@@ -1,12 +1,3 @@
-/* Sniffing WiFi Station / UDP client who prints out CSI values which describe the channel
-   between both ESP32 boards (client and server)
-
-   This example code is in the Public Domain (or CC0 licensed, at your option.)
-
-   Unless required by applicable law or agreed to in writing, this
-   software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-   CONDITIONS OF ANY KIND, either express or implied.
-*/
 #include <string.h>
 #include <sys/param.h>
 #include "freertos/FreeRTOS.h"
@@ -18,7 +9,7 @@
 #include "esp_log.h"
 #include "nvs_flash.h"
 #include "tcpip_adapter.h"
-//#include "protocol_examples_common.h"
+
 #include "lwip/err.h"
 #include "lwip/sockets.h"
 #include "lwip/sys.h"
@@ -27,7 +18,7 @@
 #include "math.h"
 
 #define EXAMPLE_ESP_WIFI_SSID      "example_ssid"		// connect to specified AP
-#define EXAMPLE_ESP_WIFI_PASS      ""	// with specified password
+#define EXAMPLE_ESP_WIFI_PASS      ""	                // with specified password
 #define HOST_IP_ADDR "192.168.4.1"			 			// or set to whatever IP your AP uses
 //#define HOST_IP_ADDR "121.248.51.215" 
 #define PORT 3333										// or any other unused port, but same as the one used by the UDP server
@@ -43,7 +34,7 @@ static EventGroupHandle_t s_wifi_event_group;
 const int WIFI_CONNECTED_BIT = BIT0;
 
 static const char *TAG = "wifi station";
-static uint8_t serial_num = 0; //serial number of csi
+static uint8_t serial_num = 0;                           //serial number of csi
 
 static bool can_print = 1;
 static int s_retry_num = 0;
@@ -175,7 +166,7 @@ static void udp_client_task(void)
                 ESP_LOGE(TAG, "Error occurred during sending: errno %d", errno);
                 break;
             }
-            vTaskDelay(400 / portTICK_PERIOD_MS); // time between packets in milliseconds
+            vTaskDelay(400 / portTICK_PERIOD_MS);                     // time between packets in milliseconds
         }
 
         if (sock != -1)
@@ -225,22 +216,14 @@ void wifi_init_sta(void)
     ESP_ERROR_CHECK(esp_wifi_set_protocol(ESP_IF_WIFI_STA, WIFI_PROTOCOL_11B|WIFI_PROTOCOL_11G|WIFI_PROTOCOL_11N));
     
     uint8_t mac[6]={0x24, 0x01, 0x01, 0x01, 0x01, 0x01};
-    ESP_ERROR_CHECK(esp_wifi_set_mac(ESP_IF_WIFI_STA, mac));
-    
-    //choose rate
-    //esp_wifi_config_espnow_rate(WIFI_IF_STA, WIFI_PHY_RATE_MCS0_LGI);    
+    ESP_ERROR_CHECK(esp_wifi_set_mac(ESP_IF_WIFI_STA, mac));   
     
 	ESP_LOGI(TAG, "Starting esp_wifi_start");
-    ESP_ERROR_CHECK(esp_wifi_start() );                   // 发布事件：WIFI_EVENT_STA_START
+    ESP_ERROR_CHECK(esp_wifi_start() );                   
       
     //set wifi chanel
     uint8_t primary = 13;
     ESP_ERROR_CHECK(esp_wifi_set_channel(primary, WIFI_SECOND_CHAN_NONE));
-
-    //uint8_t primary_test;
-    //wifi_second_chan_t second_test;
-    //esp_wifi_get_channel(&primary_test, &second_test);
-    //printf("primary_test:%d \n", primary_test);
     
     //Close wifi power saving mode
     esp_wifi_set_ps(WIFI_PS_NONE);
@@ -275,15 +258,9 @@ void wifi_init_sta(void)
 	//configuration_csi.shift = 0;
 
 	ESP_ERROR_CHECK(esp_wifi_set_csi_config(&configuration_csi));
-	
-	//ESP_ERROR_CHECK(esp_wifi_set_csi_rx_cb(&receive_csi_cb, NULL));
 
     ESP_LOGI(TAG, "wifi_init_sta finished.");
     ESP_LOGI(TAG, "connect to ap SSID:%s password:%s", EXAMPLE_ESP_WIFI_SSID, EXAMPLE_ESP_WIFI_PASS);
-
-    // Choose rate
-    //esp_err_t esp_wifi_internal_set_fix_rate(wifi_interface_t ifx, bool en, wifi_phy_rate_t rate);
-    
 
 	udp_client_task();
 }
